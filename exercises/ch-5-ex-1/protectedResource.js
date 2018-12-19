@@ -41,7 +41,14 @@ var getAccessToken = function(req, res, next) {
 		}
 	}, function(err, token) {
 		if (token) {
-			console.log("We found a matching token: %s", inToken);
+			console.log(token.expires_in)
+			console.log(Date.now())
+			if (token.expires_in < Date.now()) {
+				console.log("Token has expired!");
+				token = '';
+			} else {
+				console.log("We found a matching token: %s", inToken);
+			}
 		} else {
 			console.log('No matching token was found.');
 		}
