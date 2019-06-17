@@ -175,9 +175,9 @@ app.post("/token", function(req, res){
 	}
 	
 	if (req.body.grant_type == 'authorization_code') {
-		
+
 		var code = codes[req.body.code];
-		
+
 		if (code) {
 			delete codes[req.body.code]; // burn our code, it's been used
 			if (code.request.client_id == clientId) {
@@ -185,34 +185,54 @@ app.post("/token", function(req, res){
 				var access_token = randomstring.generate();
 				var refresh_token = randomstring.generate();
 
-				nosql.insert({ access_token: access_token, client_id: clientId, scope: code.scope });
-				nosql.insert({ refresh_token: refresh_token, client_id: clientId, scope: code.scope });
+				nosql.insert({access_token: access_token, client_id: clientId, scope: code.scope});
+				nosql.insert({refresh_token: refresh_token, client_id: clientId, scope: code.scope});
 
 				console.log('Issuing access token %s', access_token);
 
-				var token_response = { access_token: access_token, token_type: 'Bearer',  refresh_token: refresh_token, scope: code.scope.join(' ') };
+				var token_response = {
+					access_token: access_token,
+					token_type: 'Bearer',
+					refresh_token: refresh_token,
+					scope: code.scope.join(' ')
+				};
 
 				res.status(200).json(token_response);
 				console.log('Issued tokens for code %s', req.body.code);
-				
+
 				return;
 			} else {
 				console.log('Client mismatch, expected %s got %s', code.request.client_id, clientId);
 				res.status(400).json({error: 'invalid_grant'});
 				return;
 			}
-		
+
 
 		} else {
 			console.log('Unknown code, %s', req.body.code);
 			res.status(400).json({error: 'invalid_grant'});
 			return;
 		}
-	
-	/*
-	 * Implement the client credentials grant type
-	 */
-	
+
+		/*
+         * Implement the client credentials grant type
+         */
+	} else if (req.body.grant_type == 'client_credentials') {
+		var rscope = req.body.scope ? req.body.scope.split(' ') : undefined;
+		var cscope = client.scope ? client.scope.split(' ') : undefined;
+		if (__.difference(rscope, cscope).length > 0) {
+			res.status(400).json({error: 'invalid_scope'});
+			return;
+		}
+
+		var access_token = randomstring.generate();
+		var token_response = { access_token: access_token, token_type: 'Bearer',
+			scope: rscope.join(' ') };
+		nosql.insert({ access_token: access_token, client_id: clientId, scope:
+			rscope });
+		res.status(200).json(token_response);
+		return;
+
 	} else if (req.body.grant_type == 'refresh_token') {
 		nosql.one(function(token) {
 			if (token.refresh_token == req.body.refresh_token) {
